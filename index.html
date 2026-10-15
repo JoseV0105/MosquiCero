@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MosquiCero - Escáner IA</title>
+    <!-- Favicon personalizado -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #f9fafb; 
+            color: #1f2937; 
+            -webkit-tap-highlight-color: transparent; 
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+        }
+        input[type="file"] { display: none; }
+        
+        .custom-checkbox { appearance: none; width: 1.5rem; height: 1.5rem; border: 2px solid #d1d5db; border-radius: 0.375rem; background-color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .custom-checkbox:checked { background-color: #07cfc3; border-color: #07cfc3; }
+        .custom-checkbox:checked::after { content: '\2714'; color: #ffffff; font-size: 1rem; font-weight: bold; }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-left-color: #07cfc3; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        
+        .btn-custom { background-color: #009088; color: #ffffff; transition: all 0.3s ease; }
+        .btn-custom:hover:not(:disabled) { background-color: #07cfc3; color: #121212; }
+        .btn-custom:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen bg-[#f9fafb]">
+
+    <header class="flex justify-between items-center p-4 border-b border-gray-200 bg-white sticky top-0 z-20 shadow-sm">
+        <div class="flex items-center gap-2">
+            <!-- LOGO PNG: Asegúrate de tener tu archivo logo.png en la misma carpeta -->
+            <img src="isotipo.png" alt="MosquiCero Logo" class="h-8 object-contain">
+        </div>
+        <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
+            <div class="w-2 h-2 rounded-full bg-[#07cfc3] animate-pulse"></div>
+            <span class="text-xs font-medium text-gray-600">Demo IA</span>
+        </div>
+    </header>
+
+    <nav class="flex border-b border-gray-200 bg-white sticky top-[73px] z-10">
+        <button onclick="switchTab('tab-deteccion')" id="btn-deteccion" class="flex-1 py-3 text-sm font-semibold flex flex-col items-center gap-1 border-b-2 border-[#fb8e48] text-[#fb8e48] transition-colors">
+            <i class="ph ph-camera text-lg"></i> Detección
+        </button>
+        <button onclick="switchTab('tab-patio')" id="btn-patio" class="flex-1 py-3 text-sm font-semibold flex flex-col items-center gap-1 border-b-2 border-transparent text-[#7ab2b2] hover:text-[#fb8e48] transition-colors">
+            <i class="ph ph-clipboard-text text-lg"></i> Patio Cero
+        </button>
+        <button onclick="switchTab('tab-prevencion')" id="btn-prevencion" class="flex-1 py-3 text-sm font-semibold flex flex-col items-center gap-1 border-b-2 border-transparent text-[#7ab2b2] hover:text-[#fb8e48] transition-colors">
+            <i class="ph ph-lightbulb text-lg"></i> Prevención
+        </button>
+    </nav>
+
+    <main class="flex-1 p-4 max-w-md mx-auto w-full">
+        <!-- Pestaña 1: Detección -->
+        <section id="tab-deteccion" class="tab-content active">
+            <div id="scanner-ui">
+                <div class="text-center mb-6 mt-2">
+                    <h2 class="text-lg font-bold mb-2 text-[#fb8e48]">Escáner de Entorno</h2>
+                    <p class="text-sm text-gray-500">Toma una foto de tu patio o áreas sospechosas.</p>
+                </div>
+
+                <div class="relative w-full h-56 border-2 border-dashed border-gray-300 rounded-2xl bg-white overflow-hidden flex flex-col items-center justify-center mb-6 shadow-sm">
+                    <div id="upload-placeholder" class="flex flex-col items-center gap-5 w-full px-6 z-10">
+                        <div class="flex gap-4 w-full">
+                            <button onclick="startCamera()" class="flex-1 flex flex-col items-center justify-center py-4 bg-white border border-gray-200 rounded-xl cursor-pointer shadow-sm hover:bg-gray-50 transition-colors text-gray-700">
+                                <i class="ph ph-camera text-3xl mb-2 text-[#009088]"></i>
+                                <span class="text-xs font-bold tracking-wide">Tomar Foto</span>
+                            </button>
+                            <label for="gallery-upload" class="flex-1 flex flex-col items-center justify-center py-4 bg-white border border-gray-200 rounded-xl cursor-pointer shadow-sm hover:bg-gray-50 transition-colors text-gray-700">
+                                <i class="ph ph-image text-3xl mb-2 text-[#009088]"></i>
+                                <span class="text-xs font-bold tracking-wide">Galería</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="camera-container" class="absolute inset-0 w-full h-full bg-black hidden z-30 flex flex-col items-center justify-center">
+                        <video id="camera-stream" autoplay playsinline class="w-full h-full object-cover"></video>
+                        <button onclick="capturePhoto()" class="absolute bottom-4 bg-[#fb8e48] text-white px-6 py-2.5 rounded-full font-bold shadow-lg text-sm flex items-center gap-2">
+                            <i class="ph-bold ph-aperture text-lg"></i> Capturar
+                        </button>
+                    </div>
+
+                    <input type="file" id="gallery-upload" accept="image/*">
+                    <img id="image-preview" src="" alt="Vista previa" class="absolute inset-0 w-full h-full object-cover hidden z-20">
+                </div>
+
+                <button id="btn-analyze" disabled class="w-full btn-custom py-4 rounded-xl font-bold tracking-wider flex justify-center items-center gap-2 text-sm shadow-md">
+                    <i class="ph-bold ph-magnifying-glass text-lg"></i> ANALIZAR FOTOGRAFÍA
+                </button>
+            </div>
+
+            <div id="loading-ui" class="hidden flex-col items-center justify-center py-16">
+                <div class="spinner mb-8"></div>
+                <h3 class="font-bold text-xl text-[#fb8e48] mb-2">Analizando con Gemini AI...</h3>
+                <p class="text-sm text-gray-500 text-center">Evaluando riesgos y porcentaje de peligro.</p>
+                <div class="w-full max-w-xs bg-gray-200 rounded-full h-2.5 mt-8 overflow-hidden">
+                    <div id="fake-progress" class="bg-[#07cfc3] h-full rounded-full w-0 transition-all duration-300 ease-out"></div>
+                </div>
+            </div>
+
+            <div id="results-ui" class="hidden">
+                <div class="flex items-center gap-3 mb-5 mt-2">
+                    <button onclick="resetScanner()" class="p-2 bg-white border border-gray-200 rounded-full hover:bg-gray-100 transition-colors text-gray-700 shadow-sm">
+                        <i class="ph-bold ph-arrow-left"></i>
+                    </button>
+                    <h2 class="font-bold text-lg text-[#fb8e48]">Resultados del Diagnóstico</h2>
+                </div>
+
+                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-md relative overflow-hidden space-y-4">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-[#fb8e48]"></div>
+                    
+                    <div class="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Nivel de Peligro (IA)</span>
+                            <span id="risk-score-text" class="text-lg font-black text-[#009088]">0%</span>
+                        </div>
+                        <div class="w-full h-4 bg-gray-200 rounded-full overflow-hidden p-0.5">
+                            <div id="risk-bar" class="h-full rounded-full w-0 transition-all duration-700 ease-out bg-[#07cfc3]"></div>
+                        </div>
+                    </div>
+
+                    <div id="ai-response-container" class="space-y-2"></div>
+                    
+                    <div class="bg-[#009088]/5 border border-[#009088]/20 rounded-xl p-4 mt-4">
+                        <h4 class="text-sm font-bold flex items-center gap-2 mb-2 text-[#009088]">
+                            <i class="ph-fill ph-megaphone text-lg"></i> Acción Comunitaria
+                        </h4>
+                        <button id="btn-copy" onclick="copyMessage()" class="w-full bg-[#009088] text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 text-sm transition-all hover:bg-[#07cfc3] hover:text-[#121212] shadow-sm">
+                            <i class="ph-bold ph-copy text-lg"></i> <span id="copy-text">Copiar Mensaje</span>
+                        </button>
+                    </div>
+                </div>
+                <button onclick="resetScanner()" class="w-full mt-5 bg-white border-2 border-gray-200 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-50 transition-colors flex justify-center items-center gap-2 shadow-sm">
+                    <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i> EVALUAR OTRA ZONA
+                </button>
+            </div>
+        </section>
+
+        <!-- Pestaña 2: Patio Cero -->
+        <section id="tab-patio" class="tab-content">
+            <div class="mb-6 mt-2">
+                <h2 class="text-xl font-bold mb-2 text-[#fb8e48]">Patio Cero Criaderos</h2>
+                <p class="text-sm text-gray-500">Marca las tareas que ya realizaste.</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-gray-200 mb-8 shadow-sm">
+                <div class="flex justify-between items-end mb-3">
+                    <span class="text-xs font-bold uppercase tracking-widest text-gray-500">Nivel de Protección</span>
+                    <span id="progress-text" class="text-2xl font-black text-[#009088]">0%</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div id="progress-bar" class="h-full bg-[#07cfc3] w-0 transition-all duration-500 ease-out"></div>
+                </div>
+            </div>
+            <div class="space-y-4" id="checklist-container"></div>
+        </section>
+
+        <!-- Pestaña 3: Prevención (Toda la información recuperada) -->
+        <section id="tab-prevencion" class="tab-content">
+            <div class="mb-6 mt-2">
+                <h2 class="text-xl font-bold mb-2 text-[#fb8e48]">Guía Preventiva</h2>
+                <p class="text-sm text-gray-500">Información esencial sobre el Dengue y control de vectores.</p>
+            </div>
+            <div class="space-y-4">
+                <!-- Tarjeta 1 -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button class="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50 transition-colors" onclick="toggleAccordion(this)">
+                        <div class="flex items-center gap-4">
+                            <i class="ph-fill ph-bug text-xl text-[#009088]"></i>
+                            <span class="font-bold text-sm text-gray-800">¿Cómo es el mosquito?</span>
+                        </div>
+                        <i class="ph-bold ph-caret-down text-gray-400 chevron transition-transform duration-300"></i>
+                    </button>
+                    <div class="accordion-content bg-gray-50">
+                        <div class="p-5 text-sm text-gray-600 border-t border-gray-200 space-y-2">
+                            <p>El <strong>Aedes aegypti</strong> se reconoce por:</p>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Coloración oscura con franjas o anillos blancos en las patas y el dorso.</li>
+                                <li>Hábitos diurnos: pica principalmente en las primeras horas de la mañana y al atardecer.</li>
+                                <li>Vuela bajo, buscando picar tobillos y pantorrillas.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2 -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button class="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50 transition-colors" onclick="toggleAccordion(this)">
+                        <div class="flex items-center gap-4">
+                            <i class="ph-fill ph-first-aid text-xl text-[#fb8e48]"></i>
+                            <span class="font-bold text-sm text-gray-800">Síntomas de Alerta</span>
+                        </div>
+                        <i class="ph-bold ph-caret-down text-gray-400 chevron transition-transform duration-300"></i>
+                    </button>
+                    <div class="accordion-content bg-gray-50">
+                        <div class="p-5 text-sm text-gray-600 border-t border-gray-200 space-y-2">
+                            <p>Esté atento a las señales de alarma:</p>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Fiebre alta repentina (hasta 40°C).</li>
+                                <li>Dolor muscular intenso y en las articulaciones ("fiebre rompehuesos").</li>
+                                <li>Dolor severo detrás de los ojos y cefalea.</li>
+                                <li>Erupción cutánea (sarpullido) y decaimiento extremo.</li>
+                            </ul>
+                            <p class="text-red-500 font-semibold pt-1">⚠️ No se automedique ni tome aspirina o ibuprofeno; acuda al médico de inmediato.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 3 -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button class="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50 transition-colors" onclick="toggleAccordion(this)">
+                        <div class="flex items-center gap-4">
+                            <i class="ph-fill ph-drop text-xl text-[#07cfc3]"></i>
+                            <span class="font-bold text-sm text-gray-800">El Ciclo de Vida del Mosquito</span>
+                        </div>
+                        <i class="ph-bold ph-caret-down text-gray-400 chevron transition-transform duration-300"></i>
+                    </button>
+                    <div class="accordion-content bg-gray-50">
+                        <div class="p-5 text-sm text-gray-600 border-t border-gray-200 space-y-2">
+                            <p>De huevo a mosquito adulto transcurren solo <strong>7 a 10 días</strong>:</p>
+                            <ol class="list-decimal pl-5 space-y-1">
+                                <li><strong>Huevo:</strong> Resisten la sequía hasta por un año adheridos a las paredes de los recipientes.</li>
+                                <li><strong>Larva y Pupa:</strong> Viven exclusivamente en agua estancada y limpia.</li>
+                                <li><strong>Adulto:</strong> Eclosiona listo para volar y reproducirse cerca de los hogares.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 4 -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button class="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50 transition-colors" onclick="toggleAccordion(this)">
+                        <div class="flex items-center gap-4">
+                            <i class="ph-fill ph-shield-check text-xl text-[#009088]"></i>
+                            <span class="font-bold text-sm text-gray-800">Medidas de Protección Personal</span>
+                        </div>
+                        <i class="ph-bold ph-caret-down text-gray-400 chevron transition-transform duration-300"></i>
+                    </button>
+                    <div class="accordion-content bg-gray-50">
+                        <div class="p-5 text-sm text-gray-600 border-t border-gray-200 space-y-2">
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Use repelentes de insectos con DEET en la piel expuesta y ropa.</li>
+                                <li>Instale mosquiteros de malla fina en puertas y ventanas.</li>
+                                <li>Utilice ropa de manga larga y pantalones claros que reduzcan las áreas de exposición.</li>
+                                <li>Coloque pabellones o mosquiteros en las cunas y camas de niños y adultos mayores.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 5 -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <button class="w-full flex justify-between items-center p-5 text-left hover:bg-gray-50 transition-colors" onclick="toggleAccordion(this)">
+                        <div class="flex items-center gap-4">
+                            <i class="ph-fill ph-info text-xl text-[#fb8e48]"></i>
+                            <span class="font-bold text-sm text-gray-800">Mitos y Realidades</span>
+                        </div>
+                        <i class="ph-bold ph-caret-down text-gray-400 chevron transition-transform duration-300"></i>
+                    </button>
+                    <div class="accordion-content bg-gray-50">
+                        <div class="p-5 text-sm text-gray-600 border-t border-gray-200 space-y-3">
+                            <div>
+                                <p class="text-red-500 font-semibold">❌ Mito:</p>
+                                <p class="text-gray-700">El mosquito se cría en charcos grandes de agua sucia o lodo en la calle.</p>
+                                <p class="text-green-600 font-semibold mt-1">✔️ Realidad:</p>
+                                <p class="text-gray-700">Prefiere estrictamente recipientes artificiales limpios y bajo la sombra (botellas, cubetas, llantas).</p>
+                            </div>
+                            <hr class="border-gray-200">
+                            <div>
+                                <p class="text-red-500 font-semibold">❌ Mito:</p>
+                                <p class="text-gray-700">Tomar pastillas de vitamina B repele a los mosquitos.</p>
+                                <p class="text-green-600 font-semibold mt-1">✔️ Realidad:</p>
+                                <p class="text-gray-700">No existe evidencia científica que lo respalde; la protección física y el repelente son los únicos métodos seguros.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // PEGA AQUÍ TU API KEY REAL DE GOOGLE AI STUDIO (Ej: "AIzaSy...")
+        const apiKey = "AQ.Ab8RN6JaIWpCq540jnGL_Hx13KfS_Rbmeb7wDihnjE3QW0xhhg";
+        let mediaStream = null;
+
+        function switchTab(tabId) {
+            stopCamera();
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('border-[#fb8e48]', 'text-[#fb8e48]');
+                btn.classList.add('border-transparent', 'text-[#7ab2b2]');
+            });
+            document.getElementById(tabId).classList.add('active');
+            const activeBtn = document.getElementById(`btn-${tabId.split('-')[1]}`);
+            activeBtn.classList.remove('border-transparent', 'text-[#7ab2b2]');
+            activeBtn.classList.add('border-[#fb8e48]', 'text-[#fb8e48]');
+        }
+
+        const galleryInput = document.getElementById('gallery-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const analyzeBtn = document.getElementById('btn-analyze');
+        const cameraContainer = document.getElementById('camera-container');
+        const cameraStream = document.getElementById('camera-stream');
+
+        async function startCamera() {
+            cameraContainer.classList.remove('hidden');
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' }, 
+                    audio: false 
+                });
+                cameraStream.srcObject = mediaStream;
+            } catch (err) {
+                console.error("Error al acceder a la cámara:", err);
+                alert("No se pudo acceder a la cámara. Revisa los permisos de tu navegador.");
+                cameraContainer.classList.add('hidden');
+            }
+        }
+
+        function stopCamera() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            cameraContainer.classList.add('hidden');
+        }
+
+        function capturePhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraStream.videoWidth || 640;
+            canvas.height = cameraStream.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(cameraStream, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/png');
+            imagePreview.src = dataUrl;
+            imagePreview.classList.remove('hidden');
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            analyzeBtn.removeAttribute('disabled');
+            stopCamera();
+        }
+
+        galleryInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    imagePreview.classList.remove('hidden');
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                    analyzeBtn.removeAttribute('disabled');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function getBase64(fileOrDataUrl) {
+            return new Promise((resolve) => {
+                if (fileOrDataUrl.startsWith('data:')) {
+                    let encoded = fileOrDataUrl.toString().replace(/^data:(.*,)?/, '');
+                    let mime = fileOrDataUrl.match(/data:([^;]+);/)[1];
+                    resolve({ base64: encoded, mimeType: mime });
+                } else {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(fileOrDataUrl);
+                    reader.onload = () => {
+                        let encoded = reader.result.toString().replace(/^data:(.*,)?/, '');
+                        resolve({ base64: encoded, mimeType: fileOrDataUrl.type });
+                    };
+                }
+            });
+        }
+
+        analyzeBtn.addEventListener('click', async function() {
+            document.getElementById('scanner-ui').classList.add('hidden');
+            const loadingUI = document.getElementById('loading-ui');
+            loadingUI.classList.remove('hidden');
+            loadingUI.classList.add('flex');
+            const fakeProgress = document.getElementById('fake-progress');
+            fakeProgress.style.width = '30%';
+
+            try {
+                const source = galleryInput.files[0] || imagePreview.src;
+                const imageData = await getBase64(source);
+                fakeProgress.style.width = '50%';
+
+                // Usamos un proxy web (corsproxy.io) para evitar el bloqueo CORS del navegador en local
+                const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                const url = `https://corsproxy.io/?` + encodeURIComponent(targetUrl);
+                
+                const promptText = `Actúa como experto en control de vectores en Ciudad del Carmen. Analiza esta imagen y responde estrictamente con un objeto JSON válido (sin formato markdown ni texto adicional), siguiendo exactamente esta estructura:
+                {
+                  "score": 45,
+                  "html": "<p style='color: #374151;'><strong style='color: #009088;'>OBJETO:</strong> Recipiente analizado</p><p style='color: #4b5563; font-size: 14px;'>Riesgo moderado detectado en zona tropical.</p><hr style='border-color: #e5e7eb; margin: 12px 0;'><h5 style='color: #009088; margin-bottom: 8px;'>Acciones Recomendadas:</h5><ul style='color: #4b5563; font-size: 14px; padding-left: 20px; list-style-type: disc;'><li>Voltear el recipiente inmediatamente.</li><li>Lavar las paredes internas.</li></ul>"
+                }`;
+
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: promptText },
+                            { inline_data: { mime_type: imageData.mimeType, data: imageData.base64 } }
+                        ]
+                    }]
+                };
+
+                fakeProgress.style.width = '75%';
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                fakeProgress.style.width = '100%';
+
+                if (data.error) throw new Error(data.error.message);
+
+                let rawText = data.candidates[0].content.parts[0].text;
+                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(rawText);
+
+                document.getElementById('ai-response-container').innerHTML = parsed.html;
+                updateRiskBar(parsed.score);
+
+            } catch (error) {
+                console.error("Error al conectar con la API:", error);
+                document.getElementById('ai-response-container').innerHTML = `
+                    <p style='color: #fb8e48;'><strong>Error en la conexión con la IA</strong></p>
+                    <p style='color: #4b5563; font-size: 14px;'>No se pudo procesar la imagen. Verifica que tu API Key comience con 'AIzaSy' y que tengas conexión a internet.</p>
+                `;
+                updateRiskBar(0);
+            }
+
+            setTimeout(() => {
+                loadingUI.classList.add('hidden');
+                loadingUI.classList.remove('flex');
+                document.getElementById('results-ui').classList.remove('hidden');
+            }, 600);
+        });
+
+        function updateRiskBar(score) {
+            const bar = document.getElementById('risk-bar');
+            const scoreText = document.getElementById('risk-score-text');
+            
+            scoreText.innerText = `${score}%`;
+            bar.style.width = `${score}%`;
+
+            if (score <= 35) {
+                bar.style.backgroundColor = '#07cfc3';
+            } else if (score <= 70) {
+                bar.style.backgroundColor = '#fb8e48';
+            } else {
+                bar.style.backgroundColor = '#ef4444';
+            }
+        }
+
+        function resetScanner() {
+            stopCamera();
+            document.getElementById('results-ui').classList.add('hidden');
+            document.getElementById('scanner-ui').classList.remove('hidden');
+            galleryInput.value = '';
+            imagePreview.src = ''; imagePreview.classList.add('hidden');
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            analyzeBtn.setAttribute('disabled', 'true');
+        }
+
+        function copyMessage() {
+            const textToCopy = "¡Hola! Hoy escaneé mi patio con MosquiCero AI para prevenir criaderos de dengue. ¡Revisa tu patio y cuidemos nuestra comunidad! 🦟💧";
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+            
+            const span = document.getElementById('copy-text');
+            span.innerText = "¡Copiado!";
+            setTimeout(() => { span.innerText = "Copiar Mensaje"; }, 2000);
+        }
+
+        const tasks = ["Volteé cubetas", "Tapé el tinaco", "Limpié bebederos", "Revisé canaletas", "Deseché llantas"];
+        function renderChecklist() {
+            const c = document.getElementById('checklist-container');
+            c.innerHTML = tasks.map(t => `<label class="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl cursor-pointer shadow-sm hover:border-gray-300 transition-colors"><input type="checkbox" class="custom-checkbox" onchange="calcProgress()"><span class="text-sm font-medium text-gray-700">${t}</span></label>`).join('');
+        }
+        function calcProgress() {
+            const boxes = document.querySelectorAll('.custom-checkbox');
+            let chk = Array.from(boxes).filter(b => b.checked).length;
+            const pct = Math.round((chk / boxes.length) * 100);
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').innerText = `${pct}%`;
+        }
+        renderChecklist();
+
+        function toggleAccordion(btn) {
+            const content = btn.nextElementSibling;
+            const chevron = btn.querySelector('.chevron');
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+                chevron.style.transform = "rotate(0deg)";
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+                chevron.style.transform = "rotate(180deg)";
+            }
+        }
+    </script>
+</body>
+</html>
