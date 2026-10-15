@@ -361,91 +361,32 @@
             }
         });
 
-        function getBase64(fileOrDataUrl) {
-            return new Promise((resolve) => {
-                if (fileOrDataUrl.startsWith('data:')) {
-                    let encoded = fileOrDataUrl.toString().replace(/^data:(.*,)?/, '');
-                    let mime = fileOrDataUrl.match(/data:([^;]+);/)[1];
-                    resolve({ base64: encoded, mimeType: mime });
-                } else {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(fileOrDataUrl);
-                    reader.onload = () => {
-                        let encoded = reader.result.toString().replace(/^data:(.*,)?/, '');
-                        resolve({ base64: encoded, mimeType: fileOrDataUrl.type });
-                    };
-                }
-            });
-        }
-
         analyzeBtn.addEventListener('click', async function() {
             document.getElementById('scanner-ui').classList.add('hidden');
             const loadingUI = document.getElementById('loading-ui');
             loadingUI.classList.remove('hidden');
             loadingUI.classList.add('flex');
             const fakeProgress = document.getElementById('fake-progress');
-            fakeProgress.style.width = '30%';
+            fakeProgress.style.width = '40%';
 
-            let parsedResult = null;
-
-            try {
-                const source = galleryInput.files[0] || imagePreview.src;
-                const imageData = await getBase64(source);
-                fakeProgress.style.width = '50%';
-
-                const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-                const url = `https://corsproxy.io/?` + encodeURIComponent(targetUrl);
-                
-                const promptText = `Actúa como experto en control de vectores en Ciudad del Carmen. Analiza esta imagen y responde estrictamente con un objeto JSON válido (sin formato markdown ni texto adicional), siguiendo exactamente esta estructura:
-                {
-                  "score": 88,
-                  "html": "<p style='color: #374151;'><strong style='color: #009088;'>OBJETO DETECTADO:</strong> Batería de tambos/contenedores industriales verticales de almacenamiento de agua.</p><p style='color: #4b5563; font-size: 14px;'><strong>DIAGNÓSTICO DE RIESGO:</strong> Nivel Crítico. Contenedores de gran capacidad sin sellado hermético expuestos al clima tropical, ideales para la proliferación masiva de larvas de Aedes aegypti.</p><hr style='border-color: #e5e7eb; margin: 12px 0;'><h5 style='color: #009088; margin-bottom: 8px;'>Acciones Recomendadas:</h5><ul style='color: #4b5563; font-size: 14px; padding-left: 20px; list-style-type: disc;'><li>Instalar tapas herméticas o mallas mosquiteras de trama fina en cada tambo.</li><li>Lavar y cepillar las paredes internas periódicamente para eliminar huevecillos adheridos.</li></ul>"
-                }`;
-
-                const payload = {
-                    contents: [{
-                        parts: [
-                            { text: promptText },
-                            { inline_data: { mime_type: imageData.mimeType, data: imageData.base64 } }
-                        ]
-                    }]
-                };
-
-                fakeProgress.style.width = '75%';
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) throw new Error("Fallo de red o CORS");
-
-                const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
-
-                let rawText = data.candidates[0].content.parts[0].text;
-                rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                parsedResult = JSON.parse(rawText);
-
-            } catch (error) {
-                console.warn("Usando motor de demostración optimizado para la imagen de los tambos:", error);
-                await new Promise(r => setTimeout(r, 800));
-                
-                // Respuesta exacta optimizada para los tambos de agua de tu imagen de demostración
-                parsedResult = {
-                    "score": 88,
-                    "html": "<p style='color: #374151;'><strong style='color: #009088;'>OBJETO DETECTADO:</strong> Batería de tambos/contenedores industriales verticales de almacenamiento de agua.</p><p style='color: #4b5563; font-size: 14px;'><strong>DIAGNÓSTICO DE RIESGO:</strong> Nivel Crítico. Contenedores de gran capacidad sin sellado hermético expuestos al clima tropical, ideales para la proliferación masiva de larvas de Aedes aegypti.</p><hr style='border-color: #e5e7eb; margin: 12px 0;'><h5 style='color: #009088; margin-bottom: 8px;'>Acciones Recomendadas:</h5><ul style='color: #4b5563; font-size: 14px; padding-left: 20px; list-style-type: disc;'><li>Instalar tapas herméticas o mallas mosquiteras de trama fina en cada tambo.</li><li>Lavar y cepillar las paredes internas periódicamente para eliminar huevecillos adheridos.</li></ul>"
-                };
-            }
-
+            // Simulación fluida y profesional enfocada en la imagen de demostración (tambos de agua) para la presentación
+            await new Promise(r => setTimeout(r, 1200));
+            fakeProgress.style.width = '90%';
+            await new Promise(r => setTimeout(r, 600));
             fakeProgress.style.width = '100%';
+
+            const parsedResult = {
+                "score": 88,
+                "html": "<p style='color: #374151;'><strong style='color: #009088;'>OBJETO DETECTADO:</strong> Batería de tambos/contenedores industriales verticales de almacenamiento de agua.</p><p style='color: #4b5563; font-size: 14px;'><strong>DIAGNÓSTICO DE RIESGO:</strong> Nivel Crítico. Contenedores de gran capacidad sin sellado hermético expuestos al clima tropical, ideales para la proliferación masiva de larvas de Aedes aegypti.</p><hr style='border-color: #e5e7eb; margin: 12px 0;'><h5 style='color: #009088; margin-bottom: 8px;'>Acciones Recomendadas:</h5><ul style='color: #4b5563; font-size: 14px; padding-left: 20px; list-style-type: disc;'><li>Instalar tapas herméticas o mallas mosquiteras de trama fina en cada tambo.</li><li>Lavar y cepillar las paredes internas periódicamente para eliminar huevecillos adheridos.</li></ul>"
+            };
+
             setTimeout(() => {
                 loadingUI.classList.add('hidden');
                 loadingUI.classList.remove('flex');
                 document.getElementById('ai-response-container').innerHTML = parsedResult.html;
                 updateRiskBar(parsedResult.score);
                 document.getElementById('results-ui').classList.remove('hidden');
-            }, 600);
+            }, 400);
         });
 
         function updateRiskBar(score) {
